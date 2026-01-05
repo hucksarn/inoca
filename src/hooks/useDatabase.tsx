@@ -319,6 +319,34 @@ export function useRejectRequest() {
   });
 }
 
+export function useDeleteMaterialRequest() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (requestId: string) => {
+      // First delete the items (due to foreign key constraint)
+      const { error: itemsError } = await supabase
+        .from('material_request_items')
+        .delete()
+        .eq('request_id', requestId);
+      
+      if (itemsError) throw itemsError;
+
+      // Then delete the request
+      const { error: requestError } = await supabase
+        .from('material_requests')
+        .delete()
+        .eq('id', requestId);
+      
+      if (requestError) throw requestError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['material_requests'] });
+      queryClient.invalidateQueries({ queryKey: ['pending_approvals'] });
+    },
+  });
+}
+
 export function useDashboardMetrics() {
   const { user, isAdmin } = useAuth();
   
