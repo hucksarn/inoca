@@ -11,8 +11,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Plus, Trash2, Upload, Save, Send, Loader2 } from 'lucide-react';
-import { useProjects, useCreateMaterialRequest } from '@/hooks/useDatabase';
+import { useProjects, useCreateMaterialRequest, useCreateProject } from '@/hooks/useDatabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -51,9 +59,10 @@ interface FormItem {
 export default function NewRequest() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, isAdmin } = useAuth();
   const { data: projects = [], isLoading: projectsLoading } = useProjects();
   const createRequest = useCreateMaterialRequest();
+  const createProject = useCreateProject();
   
   const [formData, setFormData] = useState({
     projectId: '',
@@ -68,6 +77,33 @@ export default function NewRequest() {
   ]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAddProject, setShowAddProject] = useState(false);
+  const [newProject, setNewProject] = useState({ name: '', location: '' });
+  const [addingProject, setAddingProject] = useState(false);
+
+  const handleAddProject = async () => {
+    if (!newProject.name.trim() || !newProject.location.trim()) {
+      toast({ title: 'Error', description: 'Project name and location are required', variant: 'destructive' });
+      return;
+    }
+
+    setAddingProject(true);
+    try {
+      const project = await createProject.mutateAsync({
+        name: newProject.name,
+        location: newProject.location,
+      });
+      
+      setFormData({ ...formData, projectId: project.id });
+      setShowAddProject(false);
+      setNewProject({ name: '', location: '' });
+      toast({ title: 'Project Added', description: `${project.name} has been created.` });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'Failed to create project', variant: 'destructive' });
+    } finally {
+      setAddingProject(false);
+    }
+  };
 
   const addItem = () => {
     setItems([
@@ -181,7 +217,13 @@ export default function NewRequest() {
               <Label htmlFor="project">Project / Site *</Label>
               <Select 
                 value={formData.projectId} 
-                onValueChange={(v) => setFormData({ ...formData, projectId: v })}
+                onValueChange={(v) => {
+                  if (v === '__add_new__') {
+                    setShowAddProject(true);
+                  } else {
+                    setFormData({ ...formData, projectId: v });
+                  }
+                }}
               >
                 <SelectTrigger id="project">
                   <SelectValue placeholder="Select project" />
@@ -192,6 +234,14 @@ export default function NewRequest() {
                       {project.name}
                     </SelectItem>
                   ))}
+                  {isAdmin && (
+                    <SelectItem value="__add_new__" className="text-primary font-medium">
+                      <span className="flex items-center gap-2">
+                        <Plus className="h-4 w-4" />
+                        Add New Project
+                      </span>
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -424,6 +474,58 @@ export default function NewRequest() {
           </Button>
         </div>
       </div>
+
+      {/* Add Project Dialog */}
+      <Dialog open={showAddProject} onOpenChange={setShowAddProject}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Project</DialogTitle>
+            <DialogDescription>
+              Create a new project/site for material requests.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="projectName">Project Name *</Label>
+              <Input
+                id="projectName"
+                placeholder="e.g., Marina Bay Tower"
+                value={newProject.name}
+                onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="projectLocation">Location *</Label>
+              <Input
+                id="projectLocation"
+                placeholder="e.g., Downtown District"
+                value={newProject.location}
+                onChange={(e) => setNewProject({ ...newProject, location: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddProject(false)} disabled={addingProject}>
+              Cancel
+            </Button>
+            <Button variant="accent" onClick={handleAddProject} disabled={addingProject}>
+              {addingProject ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Project
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }

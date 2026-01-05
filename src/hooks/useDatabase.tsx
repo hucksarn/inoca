@@ -53,6 +53,26 @@ export function useProjects() {
   });
 }
 
+export function useCreateProject() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ name, location }: { name: string; location: string }) => {
+      const { data, error } = await supabase
+        .from('projects')
+        .insert({ name, location, status: 'active' })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data as Project;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
+}
+
 export function useMaterialRequests() {
   const { user, isAdmin } = useAuth();
   
