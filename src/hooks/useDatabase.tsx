@@ -207,6 +207,8 @@ export function useCreateMaterialRequest() {
       if (!user) {
         throw new Error('You must be logged in to create a request');
       }
+
+      console.log('Creating request with user.id:', user.id);
       
       // Always create request as 'draft' first so items can be added (RLS policy requirement)
       const { data: request, error: requestError } = await supabase
@@ -224,6 +226,7 @@ export function useCreateMaterialRequest() {
         .select()
         .single();
       
+      console.log('Insert result:', { request, requestError });
       if (requestError) throw requestError;
 
       // Create the items while request is still in draft status
