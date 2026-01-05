@@ -54,47 +54,49 @@ export default function RequestsList() {
       subtitle="View and manage material requests"
     >
       {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      <div className="space-y-3 mb-4 md:mb-6">
+        {/* New Request Button */}
         {!isAdmin && (
           <Link to="/requests/new">
-            <Button variant="accent" className="gap-2">
+            <Button variant="accent" size="sm" className="gap-2 md:h-10 md:px-4">
               <Plus className="h-4 w-4" />
               New Request
             </Button>
           </Link>
         )}
         
-        <div className="flex-1 flex flex-col sm:flex-row gap-3">
+        {/* Search and Filters */}
+        <div className="flex flex-col gap-3">
           {/* Search */}
-          <div className="relative flex-1 max-w-md">
+          <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search requests..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 w-full"
             />
           </div>
 
           {/* Filters */}
-          <div className="flex gap-3">
+          <div className="flex gap-2 overflow-x-auto pb-1">
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-              <SelectTrigger className="w-[160px]">
-                <Filter className="h-4 w-4 mr-2" />
+              <SelectTrigger className="w-[130px] md:w-[160px] shrink-0">
+                <Filter className="h-4 w-4 mr-1 md:mr-2" />
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="submitted">Submitted</SelectItem>
-                <SelectItem value="pm_approved">PM Approved</SelectItem>
-                <SelectItem value="pm_rejected">PM Rejected</SelectItem>
+                <SelectItem value="pm_approved">Approved</SelectItem>
+                <SelectItem value="pm_rejected">Rejected</SelectItem>
                 <SelectItem value="closed">Closed</SelectItem>
               </SelectContent>
             </Select>
 
             <Select value={projectFilter} onValueChange={setProjectFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[130px] md:w-[180px] shrink-0">
                 <SelectValue placeholder="Project" />
               </SelectTrigger>
               <SelectContent>
@@ -111,7 +113,7 @@ export default function RequestsList() {
       </div>
 
       {/* Results Count */}
-      <p className="text-sm text-muted-foreground mb-4">
+      <p className="text-xs md:text-sm text-muted-foreground mb-3 md:mb-4">
         Showing {filteredRequests.length} of {requests.length} requests
       </p>
 
