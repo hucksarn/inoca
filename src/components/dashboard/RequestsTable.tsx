@@ -1,4 +1,4 @@
-import { MaterialRequest } from '@/types';
+import { MaterialRequest } from '@/hooks/useDatabase';
 import { StatusBadge } from './StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Eye, Clock, AlertTriangle } from 'lucide-react';
@@ -30,17 +30,17 @@ export function RequestsTable({ requests, showActions = true }: RequestsTablePro
           {requests.map((request) => (
             <tr key={request.id} className="animate-fade-in">
               <td>
-                <span className="font-medium text-foreground">{request.requestNumber}</span>
+                <span className="font-medium text-foreground">{request.request_number}</span>
               </td>
               <td>
                 <div>
-                  <p className="font-medium text-foreground">{request.projectName}</p>
-                  <p className="text-xs text-muted-foreground">{request.items.length} items</p>
+                  <p className="font-medium text-foreground">{request.project_name}</p>
+                  <p className="text-xs text-muted-foreground">{request.items_count || 0} items</p>
                 </div>
               </td>
               <td>
                 <span className="capitalize text-sm">
-                  {request.requestType.replace('_', ' ')}
+                  {request.request_type.replace('_', ' ')}
                 </span>
               </td>
               <td>
@@ -55,17 +55,17 @@ export function RequestsTable({ requests, showActions = true }: RequestsTablePro
               </td>
               <td>
                 <div>
-                  <p className="text-sm font-medium">{request.requesterName}</p>
-                  <p className="text-xs text-muted-foreground">{request.requesterDesignation}</p>
+                  <p className="text-sm font-medium">{request.requester_name}</p>
+                  <p className="text-xs text-muted-foreground">{request.requester_designation}</p>
                 </div>
               </td>
               <td>
-                <StatusBadge status={request.status} />
+                <StatusBadge status={request.status as any} />
               </td>
               <td>
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Clock className="h-3.5 w-3.5" />
-                  {format(request.createdAt, 'MMM d, yyyy')}
+                  {format(new Date(request.created_at), 'MMM d, yyyy')}
                 </div>
               </td>
               {showActions && (

@@ -10,26 +10,41 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Filter } from 'lucide-react';
+import { Plus, Search, Filter, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { materialRequests, projects } from '@/data/mockData';
-import { RequestStatus } from '@/types';
+import { useMaterialRequests, useProjects } from '@/hooks/useDatabase';
+
+type StatusFilter = 'all' | 'draft' | 'submitted' | 'pm_approved' | 'pm_rejected' | 'closed';
 
 export default function RequestsList() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<RequestStatus | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
 
-  const filteredRequests = materialRequests.filter(request => {
-    const matchesSearch = request.requestNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.requesterName.toLowerCase().includes(searchTerm.toLowerCase());
+  const { data: requests = [], isLoading: requestsLoading } = useMaterialRequests();
+  const { data: projects = [], isLoading: projectsLoading } = useProjects();
+
+  const filteredRequests = requests.filter(request => {
+    const matchesSearch = 
+      request.request_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (request.project_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (request.requester_name || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || request.status === statusFilter;
-    const matchesProject = projectFilter === 'all' || request.projectId === projectFilter;
+    const matchesProject = projectFilter === 'all' || request.project_id === projectFilter;
     
     return matchesSearch && matchesStatus && matchesProject;
   });
+
+  if (requestsLoading || projectsLoading) {
+    return (
+      <MainLayout title="Material Requests" subtitle="View and manage all material requests">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout 
@@ -59,7 +74,7 @@ export default function RequestsList() {
 
           {/* Filters */}
           <div className="flex gap-3">
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as RequestStatus | 'all')}>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
               <SelectTrigger className="w-[160px]">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Status" />
@@ -70,9 +85,7 @@ export default function RequestsList() {
                 <SelectItem value="submitted">Submitted</SelectItem>
                 <SelectItem value="pm_approved">PM Approved</SelectItem>
                 <SelectItem value="pm_rejected">PM Rejected</SelectItem>
-                <SelectItem value="procurement_approved">Procurement Approved</SelectItem>
-                <SelectItem value="stock_issued">Stock Issued</SelectItem>
-                <SelectItem value="po_raised">PO Raised</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
               </SelectContent>
             </Select>
 
@@ -95,7 +108,7 @@ export default function RequestsList() {
 
       {/* Results Count */}
       <p className="text-sm text-muted-foreground mb-4">
-        Showing {filteredRequests.length} of {materialRequests.length} requests
+        Showing {filteredRequests.length} of {requests.length} requests
       </p>
 
       {/* Table */}

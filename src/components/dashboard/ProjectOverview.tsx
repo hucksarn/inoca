@@ -1,8 +1,21 @@
-import { projects } from '@/data/mockData';
-import { Building2, MapPin } from 'lucide-react';
+import { Building2, MapPin, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useProjects } from '@/hooks/useDatabase';
 
 export function ProjectOverview() {
+  const { data: projects = [], isLoading } = useProjects();
+
+  if (isLoading) {
+    return (
+      <div className="bg-card rounded-xl border border-border p-6">
+        <h3 className="text-lg font-semibold text-foreground mb-4">Active Projects</h3>
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-card rounded-xl border border-border p-6">
       <h3 className="text-lg font-semibold text-foreground mb-4">Active Projects</h3>
@@ -32,6 +45,10 @@ export function ProjectOverview() {
             </div>
           </div>
         ))}
+
+        {projects.filter(p => p.status === 'active').length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-4">No active projects</p>
+        )}
       </div>
     </div>
   );
