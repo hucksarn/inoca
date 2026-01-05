@@ -124,7 +124,16 @@ export default function Settings() {
       // For now, we'll show what we have from profiles
       const roleMap = new Map(roles?.map(r => [r.user_id, r.role]) || []);
       
-      const userList: UserWithProfile[] = (profiles || []).map(p => ({
+      // Filter out System Admin from the list (only System Admin can see themselves)
+      const filteredProfiles = (profiles || []).filter(p => {
+        // System Admin is hidden from other users
+        if (p.designation === 'System Admin' && p.user_id !== user?.id) {
+          return false;
+        }
+        return true;
+      });
+      
+      const userList: UserWithProfile[] = filteredProfiles.map(p => ({
         id: p.user_id,
         email: '', // Will be fetched separately or shown as "Hidden"
         full_name: p.full_name,
