@@ -22,15 +22,21 @@ serve(async (req) => {
       },
     });
 
+    const body = await req.json().catch(() => ({}));
+    const action = body.action || 'create';
+
     // Check if admin already exists
     const { data: existingUsers } = await supabase.auth.admin.listUsers();
-    const adminExists = existingUsers?.users?.some(
+    const existingAdmin = existingUsers?.users?.find(
       (u) => u.email === "admin@buildflow.com"
     );
 
-    if (adminExists) {
+    if (action === 'reset' && existingAdmin) {
+      // Delete existing admin
+      await supabase.auth.admin.deleteUser(existingAdmin.id);
+    } else if (action === 'create' && existingAdmin) {
       return new Response(
-        JSON.stringify({ message: "Admin user already exists", created: false }),
+        JSON.stringify({ message: "Admin user already exists. Use action: 'reset' to recreate.", created: false }),
         { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
@@ -38,7 +44,7 @@ serve(async (req) => {
     // Create default admin user
     const { data: user, error: createError } = await supabase.auth.admin.createUser({
       email: "admin@buildflow.com",
-      password: "admin",
+      password: "admin123",
       email_confirm: true,
       user_metadata: {
         full_name: "System Admin",
@@ -65,7 +71,7 @@ serve(async (req) => {
         message: "Default admin created successfully", 
         created: true,
         email: "admin@buildflow.com",
-        password: "admin (must change on first login)"
+        password: "admin123 (must change on first login)"
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
