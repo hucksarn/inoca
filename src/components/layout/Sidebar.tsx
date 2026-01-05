@@ -13,7 +13,8 @@ import {
   Building2,
   Trash2,
   ChevronDown,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -30,7 +31,12 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [showAddProject, setShowAddProject] = useState(false);
@@ -105,29 +111,51 @@ export function Sidebar() {
     }
   };
 
+  const handleNavClick = () => {
+    // Close sidebar on mobile after navigation
+    if (onClose) {
+      onClose();
+    }
+  };
+
   return (
     <aside 
       className={cn(
         "fixed left-0 top-0 z-40 h-screen bg-sidebar transition-all duration-300 flex flex-col",
-        collapsed ? "w-20" : "w-64"
+        // Desktop: always visible
+        "lg:translate-x-0",
+        collapsed ? "lg:w-20" : "lg:w-64",
+        // Mobile: slide in/out
+        isOpen ? "translate-x-0 w-64" : "-translate-x-full",
+        "lg:block"
       )}
     >
       {/* Logo */}
       <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary">
+        <Link to="/" className="flex items-center gap-3" onClick={handleNavClick}>
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary shrink-0">
             <HardHat className="h-6 w-6 text-sidebar-primary-foreground" />
           </div>
-          {!collapsed && (
+          {(!collapsed || isOpen) && (
             <div className="flex flex-col">
               <span className="text-lg font-bold text-sidebar-foreground">BuildFlow</span>
               <span className="text-xs text-sidebar-foreground/60">Procurement</span>
             </div>
           )}
         </Link>
+        
+        {/* Mobile close button */}
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors lg:hidden"
+        >
+          <X className="h-5 w-5" />
+        </button>
+        
+        {/* Desktop collapse button */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="p-1.5 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
+          className="p-1.5 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors hidden lg:block"
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>
@@ -138,23 +166,25 @@ export function Sidebar() {
         <ul className="space-y-1">
           {filteredNavigation.map((item) => {
             const isActive = location.pathname === item.href;
+            const showText = !collapsed || isOpen;
             return (
               <li key={item.name}>
                 <Link
                   to={item.href}
+                  onClick={handleNavClick}
                   className={cn(
                     "nav-link relative",
                     isActive && "nav-link-active"
                   )}
                 >
                   <item.icon className="h-5 w-5 shrink-0" />
-                  {!collapsed && <span className="flex-1">{item.name}</span>}
+                  {showText && <span className="flex-1">{item.name}</span>}
                   {item.badge && item.badge > 0 && (
                     <Badge 
                       variant="destructive" 
                       className={cn(
                         "h-5 min-w-5 flex items-center justify-center text-xs px-1.5",
-                        collapsed && "absolute -top-1 -right-1"
+                        !showText && "absolute -top-1 -right-1"
                       )}
                     >
                       {item.badge > 99 ? '99+' : item.badge}
@@ -167,7 +197,7 @@ export function Sidebar() {
         </ul>
 
         {/* Projects Section (Admin Only) */}
-        {isAdmin && !collapsed && (
+        {isAdmin && (!collapsed || isOpen) && (
           <div className="mt-6 pt-4 border-t border-sidebar-border">
             <Collapsible open={projectsOpen} onOpenChange={setProjectsOpen}>
               <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider hover:text-sidebar-foreground">
@@ -266,7 +296,7 @@ export function Sidebar() {
         )}
 
         {/* Collapsed Projects Icon */}
-        {isAdmin && collapsed && (
+        {isAdmin && collapsed && !isOpen && (
           <div className="mt-6 pt-4 border-t border-sidebar-border">
             <div className="flex justify-center">
               <div className="p-2 rounded-lg bg-sidebar-accent">
@@ -281,12 +311,12 @@ export function Sidebar() {
       <div className="border-t border-sidebar-border p-4">
         <div className={cn(
           "flex items-center gap-3",
-          collapsed && "justify-center"
+          collapsed && !isOpen && "justify-center"
         )}>
-          <div className="h-10 w-10 rounded-full bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground font-semibold">
+          <div className="h-10 w-10 rounded-full bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground font-semibold shrink-0">
             {profile?.full_name?.split(' ').map(n => n[0]).join('') || 'U'}
           </div>
-          {!collapsed && (
+          {(!collapsed || isOpen) && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">
                 {profile?.full_name || 'User'}
@@ -297,17 +327,20 @@ export function Sidebar() {
             </div>
           )}
         </div>
-        {!collapsed && (
+        {(!collapsed || isOpen) && (
           <Button 
             variant="ghost" 
             className="w-full mt-3 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-            onClick={signOut}
+            onClick={() => {
+              signOut();
+              handleNavClick();
+            }}
           >
             <LogOut className="h-4 w-4 mr-2" />
             Sign Out
           </Button>
         )}
-        {collapsed && (
+        {collapsed && !isOpen && (
           <Button 
             variant="ghost" 
             size="icon"
