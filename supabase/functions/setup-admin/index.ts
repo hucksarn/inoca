@@ -23,34 +23,38 @@ serve(async (req) => {
     });
 
     const body = await req.json().catch(() => ({}));
-    const { email, password } = body;
+    const action = body.action;
 
-    if (!email || !password) {
-      return new Response(
-        JSON.stringify({ error: "Email and password are required" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+    // Handle reset action - delete existing admin and recreate
+    if (action === "reset") {
+      const { data: existingUsers } = await supabase.auth.admin.listUsers();
+      const adminUser = existingUsers?.users?.find(u => u.email === "admin@system.local");
+      if (adminUser) {
+        await supabase.auth.admin.deleteUser(adminUser.id);
+        console.log("Deleted existing admin user");
+      }
+    } else {
+      // Check if admin already exists
+      const { data: existingUsers } = await supabase.auth.admin.listUsers();
+      const adminExists = existingUsers?.users?.some(u => u.email === "admin@system.local");
+      if (adminExists) {
+        return new Response(
+          JSON.stringify({ error: "Admin user already exists" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
     }
 
-    // Check if this is the first user (no users exist)
-    const { data: existingUsers } = await supabase.auth.admin.listUsers();
-    if (existingUsers?.users && existingUsers.users.length > 0) {
-      return new Response(
-        JSON.stringify({ error: "Initial admin already exists. Use the app to create more users." }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    // Create initial admin user
+    // Create admin user
     const { data: user, error: createError } = await supabase.auth.admin.createUser({
-      email,
-      password,
+      email: "admin@system.local",
+      password: "admin123",
       email_confirm: true,
       user_metadata: {
         full_name: "System Admin",
-        designation: "Procurement Manager",
+        designation: "System Admin",
         role: "admin",
-        must_change_password: false,
+        must_change_password: true,
       },
     });
 
@@ -60,8 +64,9 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ 
-        message: "Initial admin created successfully", 
-        email: email,
+        message: "Admin created successfully", 
+        email: "admin@system.local",
+        note: "Password: admin123 - User must change password on first login"
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
