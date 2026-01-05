@@ -5,31 +5,30 @@ import {
   FileText, 
   Plus, 
   CheckSquare, 
-  Package, 
-  Warehouse, 
-  BarChart3, 
   Settings,
   ChevronLeft,
   ChevronRight,
-  HardHat
+  HardHat,
+  LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { currentUser } from '@/data/mockData';
-
-const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'New Request', href: '/requests/new', icon: Plus },
-  { name: 'My Requests', href: '/requests', icon: FileText },
-  { name: 'Approvals', href: '/approvals', icon: CheckSquare },
-  { name: 'Procurement', href: '/procurement', icon: Package },
-  { name: 'Warehouse', href: '/warehouse', icon: Warehouse },
-  { name: 'Reports', href: '/reports', icon: BarChart3 },
-  { name: 'Settings', href: '/settings', icon: Settings },
-];
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { profile, isAdmin, signOut } = useAuth();
+
+  const navigation = [
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { name: 'New Request', href: '/requests/new', icon: Plus },
+    { name: 'My Requests', href: '/requests', icon: FileText },
+    { name: 'Approvals', href: '/approvals', icon: CheckSquare, adminOnly: true },
+    { name: 'Settings', href: '/settings', icon: Settings },
+  ];
+
+  const filteredNavigation = navigation.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <aside 
@@ -62,7 +61,7 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-3">
         <ul className="space-y-1">
-          {navigation.map((item) => {
+          {filteredNavigation.map((item) => {
             const isActive = location.pathname === item.href;
             return (
               <li key={item.name}>
@@ -89,19 +88,39 @@ export function Sidebar() {
           collapsed && "justify-center"
         )}>
           <div className="h-10 w-10 rounded-full bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground font-semibold">
-            {currentUser.name.split(' ').map(n => n[0]).join('')}
+            {profile?.full_name?.split(' ').map(n => n[0]).join('') || 'U'}
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">
-                {currentUser.name}
+                {profile?.full_name || 'User'}
               </p>
               <p className="text-xs text-sidebar-foreground/60 truncate">
-                {currentUser.designation}
+                {profile?.designation || 'Loading...'}
               </p>
             </div>
           )}
         </div>
+        {!collapsed && (
+          <Button 
+            variant="ghost" 
+            className="w-full mt-3 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            onClick={signOut}
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
+        )}
+        {collapsed && (
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="w-full mt-3 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            onClick={signOut}
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </aside>
   );

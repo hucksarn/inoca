@@ -11,11 +11,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Trash2, Upload, Save, Send } from 'lucide-react';
-import { projects, currentUser } from '@/data/mockData';
-import { MaterialCategory, Unit, MaterialItem } from '@/types';
+import { Plus, Trash2, Upload, Save, Send, Loader2 } from 'lucide-react';
+import { useProjects, useCreateMaterialRequest } from '@/hooks/useDatabase';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+
+type MaterialCategory = 'cement' | 'steel' | 'block' | 'electrical' | 'plumbing' | 'finishing' | 'other';
+type Unit = 'nos' | 'bags' | 'kg' | 'ton' | 'm3';
 
 const categories: { value: MaterialCategory; label: string }[] = [
   { value: 'cement', label: 'Cement' },
@@ -48,6 +51,9 @@ interface FormItem {
 export default function NewRequest() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const { data: projects = [], isLoading: projectsLoading } = useProjects();
+  const createRequest = useCreateMaterialRequest();
   
   const [formData, setFormData] = useState({
     projectId: '',
@@ -60,6 +66,8 @@ export default function NewRequest() {
   const [items, setItems] = useState<FormItem[]>([
     { id: '1', category: '', name: '', specification: '', quantity: '', unit: '', preferredBrand: '' }
   ]);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const addItem = () => {
     setItems([
@@ -80,15 +88,83 @@ export default function NewRequest() {
     ));
   };
 
-  const handleSubmit = (asDraft: boolean) => {
-    toast({
-      title: asDraft ? "Draft saved" : "Request submitted",
-      description: asDraft 
-        ? "Your request has been saved as a draft." 
-        : "Your request has been submitted for approval.",
-    });
-    navigate('/requests');
+  const validateForm = () => {
+    if (!formData.projectId) {
+      toast({ title: 'Error', description: 'Please select a project', variant: 'destructive' });
+      return false;
+    }
+    if (!formData.requestType) {
+      toast({ title: 'Error', description: 'Please select a request type', variant: 'destructive' });
+      return false;
+    }
+    if (formData.requestType === 'purchase_request' && !formData.requiredDate) {
+      toast({ title: 'Error', description: 'Required date is mandatory for purchase requests', variant: 'destructive' });
+      return false;
+    }
+
+    const validItems = items.filter(item => item.category && item.name && item.quantity && item.unit);
+    if (validItems.length === 0) {
+      toast({ title: 'Error', description: 'Please add at least one complete material item', variant: 'destructive' });
+      return false;
+    }
+
+    return true;
   };
+
+  const handleSubmit = async (asDraft: boolean) => {
+    if (!asDraft && !validateForm()) return;
+
+    setIsSubmitting(true);
+
+    const validItems = items
+      .filter(item => item.category && item.name && item.quantity && item.unit)
+      .map(item => ({
+        category: item.category as string,
+        name: item.name,
+        specification: item.specification || null,
+        quantity: parseFloat(item.quantity),
+        unit: item.unit as string,
+        preferred_brand: item.preferredBrand || null,
+      }));
+
+    try {
+      await createRequest.mutateAsync({
+        projectId: formData.projectId,
+        requestType: formData.requestType as string,
+        priority: formData.priority,
+        requiredDate: formData.requiredDate || null,
+        remarks: formData.remarks,
+        items: validItems,
+        status: asDraft ? 'draft' : 'submitted',
+      });
+
+      toast({
+        title: asDraft ? "Draft saved" : "Request submitted",
+        description: asDraft 
+          ? "Your request has been saved as a draft." 
+          : "Your request has been submitted for approval.",
+      });
+      navigate('/requests');
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to create request',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (projectsLoading) {
+    return (
+      <MainLayout title="New Material Request" subtitle="Create a new material request for your project">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout 
@@ -184,15 +260,15 @@ export default function NewRequest() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Name</Label>
-              <Input value={currentUser.name} disabled className="bg-muted" />
+              <Input value={profile?.full_name || ''} disabled className="bg-muted" />
             </div>
             <div className="space-y-2">
               <Label>Designation</Label>
-              <Input value={currentUser.designation} disabled className="bg-muted" />
+              <Input value={profile?.designation || ''} disabled className="bg-muted" />
             </div>
             <div className="space-y-2">
               <Label>Contact Number</Label>
-              <Input value={currentUser.phone} disabled className="bg-muted" />
+              <Input value={profile?.phone || 'Not set'} disabled className="bg-muted" />
             </div>
           </div>
         </div>
@@ -335,15 +411,15 @@ export default function NewRequest() {
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3 justify-end pt-4">
-          <Button variant="outline" onClick={() => navigate('/requests')}>
+          <Button variant="outline" onClick={() => navigate('/requests')} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button variant="secondary" onClick={() => handleSubmit(true)}>
-            <Save className="h-4 w-4 mr-2" />
+          <Button variant="secondary" onClick={() => handleSubmit(true)} disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             Save as Draft
           </Button>
-          <Button variant="accent" onClick={() => handleSubmit(false)}>
-            <Send className="h-4 w-4 mr-2" />
+          <Button variant="accent" onClick={() => handleSubmit(false)} disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
             Submit Request
           </Button>
         </div>

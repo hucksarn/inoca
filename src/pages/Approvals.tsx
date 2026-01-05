@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { StatusBadge } from '@/components/dashboard/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -19,22 +19,47 @@ import {
   ChevronRight,
   User,
   Building2,
-  Package
+  Package,
+  Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { materialRequests } from '@/data/mockData';
-import { MaterialRequest } from '@/types';
+import { usePendingApprovals, useApproveRequest, useRejectRequest, MaterialRequest, useMaterialRequestItems, MaterialRequestItem } from '@/hooks/useDatabase';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Approvals() {
   const { toast } = useToast();
+  const { data: pendingRequests = [], isLoading } = usePendingApprovals();
+  const approveRequest = useApproveRequest();
+  const rejectRequest = useRejectRequest();
+  
   const [selectedRequest, setSelectedRequest] = useState<MaterialRequest | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
   const [comment, setComment] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [requestItems, setRequestItems] = useState<Record<string, MaterialRequestItem[]>>({});
 
-  const pendingRequests = materialRequests.filter(
-    r => r.status === 'submitted' || r.status === 'pm_approved'
-  );
+  // Fetch items for all pending requests
+  useEffect(() => {
+    const fetchItems = async () => {
+      const items: Record<string, MaterialRequestItem[]> = {};
+      for (const request of pendingRequests) {
+        const { data } = await import('@/integrations/supabase/client').then(m => 
+          m.supabase
+            .from('material_request_items')
+            .select('*')
+            .eq('request_id', request.id)
+        );
+        if (data) {
+          items[request.id] = data as MaterialRequestItem[];
+        }
+      }
+      setRequestItems(items);
+    };
+    
+    if (pendingRequests.length > 0) {
+      fetchItems();
+    }
+  }, [pendingRequests]);
 
   const handleAction = (request: MaterialRequest, action: 'approve' | 'reject') => {
     setSelectedRequest(request);
@@ -42,18 +67,45 @@ export default function Approvals() {
     setComment('');
   };
 
-  const confirmAction = () => {
+  const confirmAction = async () => {
     if (!selectedRequest || !actionType) return;
 
-    toast({
-      title: actionType === 'approve' ? 'Request Approved' : 'Request Rejected',
-      description: `${selectedRequest.requestNumber} has been ${actionType === 'approve' ? 'approved' : 'rejected'}.`,
-    });
+    setIsProcessing(true);
+    
+    try {
+      if (actionType === 'approve') {
+        await approveRequest.mutateAsync({ requestId: selectedRequest.id, comment: comment || undefined });
+      } else {
+        await rejectRequest.mutateAsync({ requestId: selectedRequest.id, comment });
+      }
 
-    setSelectedRequest(null);
-    setActionType(null);
-    setComment('');
+      toast({
+        title: actionType === 'approve' ? 'Request Approved' : 'Request Rejected',
+        description: `${selectedRequest.request_number} has been ${actionType === 'approve' ? 'approved' : 'rejected'}.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to process request',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsProcessing(false);
+      setSelectedRequest(null);
+      setActionType(null);
+      setComment('');
+    }
   };
+
+  if (isLoading) {
+    return (
+      <MainLayout title="Pending Approvals" subtitle="Review and approve material requests">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout 
@@ -86,7 +138,7 @@ export default function Approvals() {
           <div className="flex items-center gap-3">
             <Check className="h-5 w-5 text-success" />
             <div>
-              <p className="text-2xl font-bold text-foreground">12</p>
+              <p className="text-2xl font-bold text-foreground">-</p>
               <p className="text-sm text-muted-foreground">Approved Today</p>
             </div>
           </div>
@@ -106,9 +158,9 @@ export default function Approvals() {
               <div className="flex-1 space-y-3">
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="text-lg font-semibold text-foreground">
-                    {request.requestNumber}
+                    {request.request_number}
                   </span>
-                  <StatusBadge status={request.status} />
+                  <StatusBadge status={request.status as any} />
                   {request.priority === 'urgent' && (
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-destructive/10 text-destructive text-xs font-medium">
                       <AlertTriangle className="h-3 w-3" />
@@ -120,15 +172,17 @@ export default function Approvals() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-foreground">{request.projectName}</span>
+                    <span className="text-foreground">{request.project_name}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-foreground">{request.requesterName}</span>
+                    <span className="text-foreground">{request.requester_name}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Package className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-foreground">{request.items.length} items</span>
+                    <span className="text-foreground">
+                      {requestItems[request.id]?.length || 0} items
+                    </span>
                   </div>
                 </div>
 
@@ -139,7 +193,7 @@ export default function Approvals() {
                 )}
 
                 <div className="text-xs text-muted-foreground">
-                  Submitted {format(request.createdAt, 'MMM d, yyyy \'at\' h:mm a')}
+                  Submitted {format(new Date(request.created_at), 'MMM d, yyyy \'at\' h:mm a')}
                 </div>
               </div>
 
@@ -169,22 +223,24 @@ export default function Approvals() {
             </div>
 
             {/* Items Preview */}
-            <div className="mt-4 pt-4 border-t border-border">
-              <div className="flex flex-wrap gap-2">
-                {request.items.map((item, idx) => (
-                  <span 
-                    key={item.id}
-                    className="inline-flex items-center px-3 py-1.5 rounded-lg bg-muted text-sm"
-                  >
-                    <span className="font-medium">{item.name}</span>
-                    <span className="mx-2 text-muted-foreground">·</span>
-                    <span className="text-muted-foreground">
-                      {item.quantity} {item.unit}
+            {requestItems[request.id] && requestItems[request.id].length > 0 && (
+              <div className="mt-4 pt-4 border-t border-border">
+                <div className="flex flex-wrap gap-2">
+                  {requestItems[request.id].map((item) => (
+                    <span 
+                      key={item.id}
+                      className="inline-flex items-center px-3 py-1.5 rounded-lg bg-muted text-sm"
+                    >
+                      <span className="font-medium">{item.name}</span>
+                      <span className="mx-2 text-muted-foreground">·</span>
+                      <span className="text-muted-foreground">
+                        {item.quantity} {item.unit}
+                      </span>
                     </span>
-                  </span>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         ))}
 
@@ -206,7 +262,7 @@ export default function Approvals() {
             </DialogTitle>
             <DialogDescription>
               {actionType === 'approve' 
-                ? 'This request will be sent to procurement for processing.'
+                ? 'This request will be marked as approved.'
                 : 'Please provide a reason for rejection. This will be visible to the requester.'
               }
             </DialogDescription>
@@ -222,14 +278,15 @@ export default function Approvals() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedRequest(null)}>
+            <Button variant="outline" onClick={() => setSelectedRequest(null)} disabled={isProcessing}>
               Cancel
             </Button>
             <Button 
               variant={actionType === 'approve' ? 'success' : 'destructive'}
               onClick={confirmAction}
-              disabled={actionType === 'reject' && !comment.trim()}
+              disabled={(actionType === 'reject' && !comment.trim()) || isProcessing}
             >
+              {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {actionType === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
             </Button>
           </DialogFooter>
