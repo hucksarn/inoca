@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import RequestsList from "./pages/RequestsList";
+import RequestDetails from "./pages/RequestDetails";
 import NewRequest from "./pages/NewRequest";
 import Approvals from "./pages/Approvals";
 import Settings from "./pages/Settings";
@@ -70,6 +71,7 @@ function AppRoutes() {
       <Route path="/auth" element={<Auth />} />
       <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
       <Route path="/requests" element={<ProtectedRoute><RequestsList /></ProtectedRoute>} />
+      <Route path="/requests/:id" element={<ProtectedRoute><RequestDetails /></ProtectedRoute>} />
       <Route path="/requests/new" element={<ProtectedRoute><NewRequest /></ProtectedRoute>} />
       <Route path="/approvals" element={<AdminRoute><Approvals /></AdminRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
