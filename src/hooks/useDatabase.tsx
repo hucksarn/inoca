@@ -319,6 +319,7 @@ export function useRejectRequest() {
   });
 }
 
+
 export function useDeleteMaterialRequest() {
   const queryClient = useQueryClient();
   
@@ -343,7 +344,26 @@ export function useDeleteMaterialRequest() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['material_requests'] });
       queryClient.invalidateQueries({ queryKey: ['pending_approvals'] });
+      queryClient.invalidateQueries({ queryKey: ['pending_count'] });
     },
+  });
+}
+
+export function usePendingRequestsCount() {
+  const { user, isAdmin } = useAuth();
+  
+  return useQuery({
+    queryKey: ['pending_count', user?.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('material_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'submitted');
+      
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!user && isAdmin,
   });
 }
 

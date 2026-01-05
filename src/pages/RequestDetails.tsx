@@ -36,7 +36,8 @@ const RequestDetails = () => {
   const deleteMutation = useDeleteMaterialRequest();
 
   const request = requests?.find(r => r.id === id);
-  const isSuperAdmin = profile?.designation === 'System Admin';
+  // Allow System Admin to delete requests
+  const canDelete = isAdmin && profile?.designation === 'System Admin';
 
   const handleDelete = async () => {
     if (!id) return;
@@ -102,7 +103,7 @@ const RequestDetails = () => {
             Back to Requests
           </Button>
           
-          {isSuperAdmin && (
+          {canDelete && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive">

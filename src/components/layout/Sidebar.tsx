@@ -19,7 +19,8 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useProjects, useCreateProject } from '@/hooks/useDatabase';
+import { Badge } from '@/components/ui/badge';
+import { useProjects, useCreateProject, usePendingRequestsCount } from '@/hooks/useDatabase';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -41,6 +42,7 @@ export function Sidebar() {
   const location = useLocation();
   const { profile, isAdmin, signOut } = useAuth();
   const { data: projects = [], isLoading: projectsLoading } = useProjects();
+  const { data: pendingCount = 0 } = usePendingRequestsCount();
   const createProject = useCreateProject();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -51,7 +53,7 @@ export function Sidebar() {
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'New Request', href: '/requests/new', icon: Plus },
     { name: 'My Requests', href: '/requests', icon: FileText },
-    { name: 'Approvals', href: '/approvals', icon: CheckSquare, adminOnly: true },
+    { name: 'Approvals', href: '/approvals', icon: CheckSquare, adminOnly: true, badge: pendingCount },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
@@ -139,12 +141,23 @@ export function Sidebar() {
                 <Link
                   to={item.href}
                   className={cn(
-                    "nav-link",
+                    "nav-link relative",
                     isActive && "nav-link-active"
                   )}
                 >
                   <item.icon className="h-5 w-5 shrink-0" />
-                  {!collapsed && <span>{item.name}</span>}
+                  {!collapsed && <span className="flex-1">{item.name}</span>}
+                  {item.badge && item.badge > 0 && (
+                    <Badge 
+                      variant="destructive" 
+                      className={cn(
+                        "h-5 min-w-5 flex items-center justify-center text-xs px-1.5",
+                        collapsed && "absolute -top-1 -right-1"
+                      )}
+                    >
+                      {item.badge > 99 ? '99+' : item.badge}
+                    </Badge>
+                  )}
                 </Link>
               </li>
             );
