@@ -60,6 +60,7 @@ interface UserWithProfile {
 
 // Map designations to roles
 const designationRoleMap: Record<string, 'admin' | 'user'> = {
+  'System Admin': 'admin',
   'Procurement Manager': 'admin',
   'Project Manager': 'admin',
   'Site Supervisor': 'user',
@@ -90,6 +91,7 @@ export default function Settings() {
   });
 
   const designations = [
+    'System Admin',
     'Procurement Manager',
     'Project Manager',
     'Site Supervisor',
