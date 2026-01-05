@@ -416,6 +416,8 @@ export function useDashboardMetrics() {
       ];
     },
     enabled: !!user,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 
