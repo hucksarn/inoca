@@ -51,13 +51,15 @@ export function Sidebar() {
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'New Request', href: '/requests/new', icon: Plus },
-    { name: 'My Requests', href: '/requests', icon: FileText },
+    { name: 'New Request', href: '/requests/new', icon: Plus, hideForAdmin: true },
+    { name: isAdmin ? 'All Requests' : 'My Requests', href: '/requests', icon: FileText },
     { name: 'Approvals', href: '/approvals', icon: CheckSquare, adminOnly: true, badge: pendingCount },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
-  const filteredNavigation = navigation.filter(item => !item.adminOnly || isAdmin);
+  const filteredNavigation = navigation.filter(item => 
+    (!item.adminOnly || isAdmin) && (!item.hideForAdmin || !isAdmin)
+  );
 
   const handleAddProject = async () => {
     if (!newProjectName.trim() || !newProjectLocation.trim()) {
