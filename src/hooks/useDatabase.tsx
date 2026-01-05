@@ -253,12 +253,15 @@ export function useCreateMaterialRequest() {
 
       // If status should be 'submitted', update it now
       if (status === 'submitted') {
-        const { error: updateError } = await supabase
+        const { data: updatedRequest, error: updateError } = await supabase
           .from('material_requests')
           .update({ status: 'submitted' })
-          .eq('id', request.id);
+          .eq('id', request.id)
+          .select()
+          .single();
         
         if (updateError) throw updateError;
+        return updatedRequest;
       }
 
       return request;
