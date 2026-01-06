@@ -3,12 +3,12 @@ import { Building2, Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +23,6 @@ import { useProjects, useCreateProject } from '@/hooks/useDatabase';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
-import { cn } from '@/lib/utils';
 
 interface MobileProjectsSheetProps {
   children: React.ReactNode;
@@ -92,19 +91,19 @@ export function MobileProjectsSheet({ children }: MobileProjectsSheetProps) {
 
   return (
     <>
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
           {children}
-        </SheetTrigger>
-        <SheetContent side="bottom" className="h-[70vh] rounded-t-xl">
-          <SheetHeader className="pb-4">
-            <SheetTitle className="flex items-center gap-2">
+        </DialogTrigger>
+        <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />
               Projects
-            </SheetTitle>
-          </SheetHeader>
+            </DialogTitle>
+          </DialogHeader>
 
-          <div className="space-y-2 overflow-y-auto max-h-[calc(70vh-120px)]">
+          <div className="space-y-2 overflow-y-auto flex-1">
             {isLoading ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -187,8 +186,8 @@ export function MobileProjectsSheet({ children }: MobileProjectsSheetProps) {
               </>
             )}
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
         <AlertDialogContent className="max-w-[90vw] sm:max-w-md">
