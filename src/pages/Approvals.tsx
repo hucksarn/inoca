@@ -86,6 +86,27 @@ export default function Approvals() {
     
     try {
       if (actionType === 'approve') {
+        if (requestType === 'stock_request') {
+          const itemsToDeduct = (requestItems[selectedRequest.id] || []).map((item) => ({
+            description: item.name,
+            qty: item.quantity,
+            unit: item.unit,
+          }));
+
+          if (itemsToDeduct.length > 0) {
+            const response = await fetch('/api/stock/deduct', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ items: itemsToDeduct }),
+            });
+
+            if (!response.ok) {
+              const data = await response.json().catch(() => ({}));
+              throw new Error(data.error || 'Failed to deduct stock');
+            }
+          }
+        }
+
         await approveRequest.mutateAsync({ 
           requestId: selectedRequest.id, 
           comment: comment || undefined,

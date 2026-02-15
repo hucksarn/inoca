@@ -43,6 +43,19 @@ function createId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function computeBalances(entries) {
+  const balances = new Map();
+  for (const entry of entries) {
+    const description = String(entry.description || '').trim();
+    const unit = String(entry.unit || '').trim();
+    if (!description) continue;
+    const key = `${description}__${unit}`;
+    const current = balances.get(key) || 0;
+    balances.set(key, current + Number(entry.qty || 0));
+  }
+  return balances;
+}
+
 async function initStorage() {
   await ensureFile(stockFile, []);
 }
@@ -68,6 +81,48 @@ app.post('/api/stock', async (req, res) => {
   }));
 
   const next = [...normalized, ...stock];
+  await writeJson(stockFile, next);
+  res.json({ items: next });
+});
+
+app.post('/api/stock/deduct', async (req, res) => {
+  const { items } = req.body || {};
+  if (!Array.isArray(items)) {
+    return res.status(400).json({ error: 'items must be an array' });
+  }
+
+  const stock = await readJson(stockFile, []);
+  const balances = computeBalances(stock);
+
+  for (const item of items) {
+    const description = String(item.description || '').trim();
+    const unit = String(item.unit || '').trim();
+    const qty = Number(item.qty || 0);
+
+    if (!description || !unit || qty <= 0) {
+      return res.status(400).json({ error: 'Each item requires description, unit, qty > 0' });
+    }
+
+    const key = `${description}__${unit}`;
+    const available = balances.get(key) || 0;
+    if (available < qty) {
+      return res.status(400).json({
+        error: `Insufficient stock for ${description} (${unit}). Available ${available}. Requested ${qty}.`,
+      });
+    }
+
+    balances.set(key, available - qty);
+  }
+
+  const deductions = items.map((item) => ({
+    id: createId('stock'),
+    date: item.date ?? '',
+    description: String(item.description || '').trim(),
+    qty: -Math.abs(Number(item.qty || 0)),
+    unit: String(item.unit || '').trim(),
+  }));
+
+  const next = [...deductions, ...stock];
   await writeJson(stockFile, next);
   res.json({ items: next });
 });
