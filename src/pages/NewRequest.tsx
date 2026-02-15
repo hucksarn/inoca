@@ -268,8 +268,17 @@ export default function NewRequest() {
       subtitle="Create a new material request for your project"
     >
       <div className="max-w-4xl mx-auto space-y-6">
+        {/* Section Navigation */}
+        <div className="sticky top-16 z-20 rounded-xl border border-border bg-background/80 backdrop-blur px-3 py-2">
+          <div className="flex flex-wrap gap-2">
+            <a href="#section-a" className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted hover:bg-muted/70">Section A</a>
+            <a href="#section-b" className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted hover:bg-muted/70">Section B</a>
+            <a href="#section-c" className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted hover:bg-muted/70">Section C</a>
+            <a href="#section-d" className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted hover:bg-muted/70">Section D</a>
+          </div>
+        </div>
         {/* Section A: Request Details */}
-        <div className="form-section animate-slide-up">
+        <div id="section-a" className="form-section animate-slide-up">
           <h2 className="form-section-title">Section A – Request Details</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -346,7 +355,7 @@ export default function NewRequest() {
         </div>
 
         {/* Section B: Requester Details */}
-        <div className="form-section animate-slide-up" style={{ animationDelay: '100ms' }}>
+        <div id="section-b" className="form-section animate-slide-up" style={{ animationDelay: '100ms' }}>
           <h2 className="form-section-title">Section B – Requester Details</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -366,7 +375,7 @@ export default function NewRequest() {
         </div>
 
         {/* Section C: Material Details */}
-        <div className="form-section animate-slide-up" style={{ animationDelay: '200ms' }}>
+        <div id="section-c" className="form-section animate-slide-up" style={{ animationDelay: '200ms' }}>
           <div className="flex items-center justify-between">
             <h2 className="form-section-title">Section C – Material Details</h2>
             <Button
@@ -388,12 +397,13 @@ export default function NewRequest() {
             {items.map((item, index) => (
               <div 
                 key={item.id} 
-                className="p-4 rounded-lg bg-muted/50 border border-border space-y-4"
+                className="p-4 rounded-lg bg-muted/40 border border-border space-y-4"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm text-muted-foreground">
-                    Item #{index + 1}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">{index + 1}</span>
+                    <span className="font-medium text-sm text-muted-foreground">Item</span>
+                  </div>
                   {items.length > 1 && (
                     <Button 
                       variant="ghost" 
@@ -507,7 +517,7 @@ export default function NewRequest() {
         </div>
 
         {/* Section D: Attachments */}
-        <div className="form-section animate-slide-up" style={{ animationDelay: '300ms' }}>
+        <div id="section-d" className="form-section animate-slide-up" style={{ animationDelay: '300ms' }}>
           <h2 className="form-section-title">Section D – Attachments</h2>
           
           <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
