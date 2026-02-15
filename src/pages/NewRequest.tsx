@@ -53,7 +53,7 @@ export default function NewRequest() {
   const { data: categories = [], isLoading: categoriesLoading } = useMaterialCategories();
   const createRequest = useCreateMaterialRequest();
   const createProject = useCreateProject();
-  const [stockItems, setStockItems] = useState<Array<{ description: string; qty: number; unit: string }>>([]);
+  const [stockItems, setStockItems] = useState<Array<{ item: string; description: string; qty: number; unit: string }>>([]);
   const [loadingStock, setLoadingStock] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -71,6 +71,8 @@ export default function NewRequest() {
   const [showAddProject, setShowAddProject] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', location: '' });
   const [addingProject, setAddingProject] = useState(false);
+  const [stockSearchOpenFor, setStockSearchOpenFor] = useState<string | null>(null);
+  const [stockSearchQuery, setStockSearchQuery] = useState('');
 
   useEffect(() => {
     const loadStock = async () => {
@@ -81,6 +83,7 @@ export default function NewRequest() {
         if (Array.isArray(data.items)) {
           setStockItems(
             data.items.map((item: any) => ({
+              item: String(item.item || '').trim(),
               description: String(item.description || '').trim(),
               qty: Number(item.qty || 0),
               unit: String(item.unit || '').trim(),
@@ -102,19 +105,32 @@ export default function NewRequest() {
   }, [toast]);
 
   const stockBalances = useMemo(() => {
-    const balances = new Map<string, { description: string; unit: string; qty: number }>();
+    const balances = new Map<string, { item: string; description: string; unit: string; qty: number }>();
     for (const item of stockItems) {
       if (!item.description) continue;
-      const key = `${item.description}__${item.unit}`;
+      const key = `${item.item}__${item.description}__${item.unit}`;
       const current = balances.get(key);
       if (current) {
         current.qty += item.qty;
       } else {
-        balances.set(key, { description: item.description, unit: item.unit, qty: item.qty });
+        balances.set(key, { item: item.item, description: item.description, unit: item.unit, qty: item.qty });
       }
     }
     return Array.from(balances.values()).sort((a, b) => a.description.localeCompare(b.description));
   }, [stockItems]);
+
+  const filteredStockOptions = useMemo(() => {
+    const query = stockSearchQuery.trim().toLowerCase();
+    if (!query) return stockBalances.slice(0, 20);
+    return stockBalances
+      .filter((entry) =>
+        `${entry.item} ${entry.description} ${entry.unit}`.toLowerCase().includes(query) ||
+        entry.description.toLowerCase().includes(query) ||
+        entry.item.toLowerCase().includes(query)
+      )
+      .slice(0, 50);
+  }, [stockBalances, stockSearchQuery]);
+
 
   const getBalance = (description: string, unit: string) => {
     const match = stockBalances.find(
@@ -385,46 +401,25 @@ export default function NewRequest() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Material Name *</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>Material Name *</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setStockSearchOpenFor(item.id);
+                          setStockSearchQuery('');
+                        }}
+                      >
+                        Search Stock
+                      </Button>
+                    </div>
                     <Input
                       placeholder="e.g., Portland Cement"
                       value={item.name}
                       onChange={(e) => updateItem(item.id, 'name', e.target.value)}
                     />
-                    {item.name.trim().length > 0 && (
-                      <div className="rounded-lg border border-border bg-background p-2 text-xs">
-                        <div className="text-muted-foreground mb-1">
-                          Available stock
-                          {loadingStock ? ' (loading...)' : ''}:
-                        </div>
-                        <div className="space-y-1">
-                          {stockBalances
-                            .filter((entry) =>
-                              entry.description.toLowerCase().includes(item.name.toLowerCase()),
-                            )
-                            .slice(0, 5)
-                            .map((entry) => (
-                              <button
-                                type="button"
-                                key={`${entry.description}_${entry.unit}`}
-                                className="w-full text-left hover:text-primary"
-                                onClick={() => {
-                                  updateItem(item.id, 'name', entry.description);
-                                  updateItem(item.id, 'unit', entry.unit);
-                                }}
-                              >
-                                {entry.description} — {entry.qty} {entry.unit}
-                              </button>
-                            ))}
-                          {!loadingStock &&
-                            stockBalances.filter((entry) =>
-                              entry.description.toLowerCase().includes(item.name.toLowerCase()),
-                            ).length === 0 && (
-                              <div className="text-muted-foreground">No matching stock items.</div>
-                            )}
-                        </div>
-                      </div>
-                    )}
                     {item.name && item.unit && (
                       <div className="text-xs text-muted-foreground">
                         Balance: {getBalance(item.name, item.unit)} {item.unit}
@@ -528,6 +523,56 @@ export default function NewRequest() {
           </Button>
         </div>
       </div>
+
+
+      {/* Stock Search Dialog */}
+      <Dialog open={!!stockSearchOpenFor} onOpenChange={(open) => !open && setStockSearchOpenFor(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Select Stock Item</DialogTitle>
+            <DialogDescription>
+              Search stock items and fill the request item details.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <Input
+              placeholder="Search stock by description or unit..."
+              value={stockSearchQuery}
+              onChange={(e) => setStockSearchQuery(e.target.value)}
+            />
+
+            <div className="border rounded-lg max-h-64 overflow-y-auto">
+              {loadingStock ? (
+                <div className="p-4 text-sm text-muted-foreground">Loading stock...</div>
+              ) : filteredStockOptions.length === 0 ? (
+                <div className="p-4 text-sm text-muted-foreground">No matching stock items.</div>
+              ) : (
+                <div className="divide-y">
+                  {filteredStockOptions.map((entry) => (
+                    <button
+                      type="button"
+                      key={`${entry.description}_${entry.unit}`}
+                      className="w-full text-left p-3 hover:bg-muted/50"
+                      onClick={() => {
+                        if (!stockSearchOpenFor) return;
+                        updateItem(stockSearchOpenFor, 'name', entry.item || entry.description);
+                        updateItem(stockSearchOpenFor, 'specification', entry.description);
+                        updateItem(stockSearchOpenFor, 'unit', entry.unit);
+                        setStockSearchOpenFor(null);
+                      }}
+                    >
+                      <div className="font-medium text-sm">{entry.item || entry.description}</div>
+                      <div className="text-xs text-muted-foreground">{entry.description}</div>
+                      <div className="text-xs text-muted-foreground">Available: {entry.qty} {entry.unit}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Project Dialog */}
       <Dialog open={showAddProject} onOpenChange={setShowAddProject}>
