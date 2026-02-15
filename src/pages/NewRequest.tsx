@@ -139,6 +139,17 @@ export default function NewRequest() {
     return match?.qty ?? 0;
   };
 
+  const pickCategory = (entry: { item: string; description: string; unit: string }) => {
+    if (categories.length == 0) return '';
+    const seed = `${entry.item} ${entry.description} ${entry.unit}`.trim();
+    let hash = 0;
+    for (let i = 0; i < seed.length; i += 1) {
+      hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+    }
+    return categories[hash % categories.length]?.slug || '';
+  };
+
+
   const handleAddProject = async () => {
     if (!newProject.name.trim() || !newProject.location.trim()) {
       toast({ title: 'Error', description: 'Project name and location are required', variant: 'destructive' });
@@ -386,6 +397,7 @@ export default function NewRequest() {
                     <Select 
                       value={item.category} 
                       onValueChange={(v) => updateItem(item.id, 'category', v)}
+                      disabled
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select category" />
@@ -416,9 +428,9 @@ export default function NewRequest() {
                       </Button>
                     </div>
                     <Input
-                      placeholder="e.g., Portland Cement"
+                      placeholder="Select from stock"
                       value={item.name}
-                      onChange={(e) => updateItem(item.id, 'name', e.target.value)}
+                      readOnly
                     />
                     {item.name && item.unit && (
                       <div className="text-xs text-muted-foreground">
@@ -433,6 +445,7 @@ export default function NewRequest() {
                       placeholder="Grade, size, standard..."
                       value={item.specification}
                       onChange={(e) => updateItem(item.id, 'specification', e.target.value)}
+                      disabled
                     />
                   </div>
 
@@ -452,6 +465,7 @@ export default function NewRequest() {
                     <Select 
                       value={item.unit} 
                       onValueChange={(v) => updateItem(item.id, 'unit', v)}
+                      disabled
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select unit" />
@@ -559,6 +573,7 @@ export default function NewRequest() {
                         updateItem(stockSearchOpenFor, 'name', entry.item || entry.description);
                         updateItem(stockSearchOpenFor, 'specification', entry.description);
                         updateItem(stockSearchOpenFor, 'unit', entry.unit);
+                        updateItem(stockSearchOpenFor, 'category', pickCategory(entry));
                         setStockSearchOpenFor(null);
                       }}
                     >
