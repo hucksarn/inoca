@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import {
@@ -8,7 +9,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Plus, Upload, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import * as XLSX from 'xlsx';
 
 type StockItem = {
   id: string;
@@ -18,52 +31,384 @@ type StockItem = {
   unit: string;
 };
 
+type ShipmentItem = {
+  description: string;
+  qty: number;
+  unit: string;
+};
+
+type Shipment = {
+  id: string;
+  reference?: string;
+  date?: string;
+  status?: string;
+  items?: ShipmentItem[];
+};
+
+type UploadRow = {
+  id: string;
+  description: string;
+  qty: number;
+  unit: string;
+};
+
 export default function Stock() {
-  const stockItems: StockItem[] = [];
+  const { toast } = useToast();
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [loadingStock, setLoadingStock] = useState(true);
+  const [loadingShipments, setLoadingShipments] = useState(true);
+  const [showDialog, setShowDialog] = useState(false);
+  const [selectedShipmentId, setSelectedShipmentId] = useState('');
+  const [submittingShipment, setSubmittingShipment] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadRows, setUploadRows] = useState<UploadRow[]>([]);
+
+  const selectedShipment = useMemo(
+    () => shipments.find((shipment) => shipment.id === selectedShipmentId),
+    [shipments, selectedShipmentId],
+  );
+
+  const loadStock = async () => {
+    try {
+      const response = await fetch('/api/stock');
+      const data = await response.json();
+      setStockItems(Array.isArray(data.items) ? data.items : []);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load stock items',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingStock(false);
+    }
+  };
+
+  const loadShipments = async () => {
+    try {
+      const response = await fetch('/api/shipments');
+      const data = await response.json();
+      setShipments(Array.isArray(data.shipments) ? data.shipments : []);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load shipments',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingShipments(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadStock();
+    void loadShipments();
+  }, []);
+
+  const handleAddFromShipment = async () => {
+    if (!selectedShipmentId) {
+      toast({
+        title: 'Select Shipment',
+        description: 'Please choose a shipment first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSubmittingShipment(true);
+    try {
+      const response = await fetch('/api/grn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shipmentId: selectedShipmentId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to apply GRN');
+      }
+
+      const data = await response.json();
+      setStockItems(Array.isArray(data.items) ? data.items : []);
+      toast({ title: 'Stock Updated', description: 'Shipment items added to stock.' });
+      setShowDialog(false);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Could not add shipment to stock.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmittingShipment(false);
+    }
+  };
+
+  const parseExcel = async (file: File) => {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array' });
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<Record<string, any>>(firstSheet, { defval: '' });
+
+    const normalized = rows
+      .map((row, index) => {
+        const description = row.Description || row.description || row.DESC || row.desc || '';
+        const qty = row.Qty ?? row.qty ?? row.QTY ?? row.Quantity ?? row.quantity ?? '';
+        const unit = row.Unit || row.unit || row.UOM || row.uom || '';
+
+        if (!description) return null;
+
+        return {
+          id: `upload_${Date.now()}_${index}`,
+          description: String(description).trim(),
+          qty: Number(qty) || 0,
+          unit: String(unit).trim(),
+        };
+      })
+      .filter(Boolean) as UploadRow[];
+
+    setUploadRows(normalized);
+  };
+
+  const handleExcelUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      await parseExcel(file);
+    } catch (error) {
+      toast({
+        title: 'Upload Failed',
+        description: 'Could not read Excel file.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleImportRows = async () => {
+    if (uploadRows.length === 0) {
+      toast({
+        title: 'No Data',
+        description: 'Upload an Excel file with stock rows.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const response = await fetch('/api/stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: uploadRows }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to import stock');
+      }
+      const data = await response.json();
+      setStockItems(Array.isArray(data.items) ? data.items : []);
+      setUploadRows([]);
+      toast({ title: 'Stock Imported', description: 'Excel rows added to stock.' });
+      setShowDialog(false);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to import stock rows.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <MainLayout title="Stock" subtitle="Store items inventory">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-base md:text-lg font-semibold text-foreground">Stock Items</h2>
           <p className="text-xs md:text-sm text-muted-foreground">Record incoming items (GRN) and current stock.</p>
         </div>
-        <Button variant="accent" size="sm" className="gap-2">
+        <Button variant="accent" size="sm" className="gap-2" onClick={() => setShowDialog(true)}>
           <Plus className="h-4 w-4" />
           Add GRN
         </Button>
       </div>
 
       <div className="bg-card rounded-xl border border-border p-3 md:p-6">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Qty</TableHead>
-              <TableHead>Unit</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {stockItems.length === 0 ? (
+        {loadingStock ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  No stock items yet.
-                </TableCell>
+                <TableHead>Date</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Qty</TableHead>
+                <TableHead>Unit</TableHead>
               </TableRow>
-            ) : (
-              stockItems.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell>{item.date}</TableCell>
-                  <TableCell className="font-medium">{item.description}</TableCell>
-                  <TableCell>{item.qty}</TableCell>
-                  <TableCell>{item.unit}</TableCell>
+            </TableHeader>
+            <TableBody>
+              {stockItems.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    No stock items yet.
+                  </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                stockItems.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>{item.date}</TableCell>
+                    <TableCell className="font-medium">{item.description}</TableCell>
+                    <TableCell>{item.qty}</TableCell>
+                    <TableCell>{item.unit}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
       </div>
+
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Add GRN</DialogTitle>
+            <DialogDescription>
+              Add stock from an incoming shipment or import via Excel.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Tabs defaultValue="shipment" className="space-y-4">
+            <TabsList className="w-full">
+              <TabsTrigger value="shipment" className="flex-1">From Shipment</TabsTrigger>
+              <TabsTrigger value="excel" className="flex-1">Upload Excel</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="shipment" className="space-y-4">
+              {loadingShipments ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <>
+                  <Select value={selectedShipmentId} onValueChange={setSelectedShipmentId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a shipment" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {shipments.length === 0 ? (
+                        <SelectItem value="empty" disabled>No shipments available</SelectItem>
+                      ) : (
+                        shipments.map((shipment) => (
+                          <SelectItem key={shipment.id} value={shipment.id}>
+                            {shipment.reference || shipment.id} {shipment.status === 'received' ? '(Received)' : ''}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+
+                  <div className="border rounded-lg p-3 text-sm">
+                    {selectedShipment?.items?.length ? (
+                      <div className="space-y-2">
+                        {selectedShipment.items.map((item, index) => (
+                          <div key={`${item.description}-${index}`} className="flex justify-between">
+                            <span>{item.description}</span>
+                            <span className="text-muted-foreground">{item.qty} {item.unit}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground">No items to display.</p>
+                    )}
+                  </div>
+
+                  <Button
+                    variant="accent"
+                    onClick={handleAddFromShipment}
+                    disabled={submittingShipment || !selectedShipmentId || selectedShipmentId === 'empty'}
+                    className="gap-2"
+                  >
+                    {submittingShipment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    Add to Stock
+                  </Button>
+                </>
+              )}
+            </TabsContent>
+
+            <TabsContent value="excel" className="space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Input type="file" accept=".xlsx,.xls" onChange={handleExcelUpload} />
+                <Button variant="outline" className="gap-2" disabled={uploading}>
+                  <Upload className="h-4 w-4" />
+                  Upload
+                </Button>
+              </div>
+
+              {uploadRows.length > 0 ? (
+                <div className="border rounded-lg p-3">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Qty</TableHead>
+                        <TableHead>Unit</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {uploadRows.map((row, index) => (
+                        <TableRow key={row.id}>
+                          <TableCell>
+                            <Input
+                              value={row.description}
+                              onChange={(event) => {
+                                const next = [...uploadRows];
+                                next[index] = { ...row, description: event.target.value };
+                                setUploadRows(next);
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell className="w-28">
+                            <Input
+                              value={row.qty}
+                              onChange={(event) => {
+                                const next = [...uploadRows];
+                                next[index] = { ...row, qty: Number(event.target.value) || 0 };
+                                setUploadRows(next);
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell className="w-32">
+                            <Input
+                              value={row.unit}
+                              onChange={(event) => {
+                                const next = [...uploadRows];
+                                next[index] = { ...row, unit: event.target.value };
+                                setUploadRows(next);
+                              }}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Upload an Excel file to preview rows.</p>
+              )}
+
+              <Button variant="accent" onClick={handleImportRows} disabled={uploading || uploadRows.length === 0}>
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Import to Stock
+              </Button>
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
