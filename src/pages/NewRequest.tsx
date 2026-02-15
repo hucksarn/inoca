@@ -71,8 +71,11 @@ export default function NewRequest() {
   const [showAddProject, setShowAddProject] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', location: '' });
   const [addingProject, setAddingProject] = useState(false);
-  const [stockSearchOpenFor, setStockSearchOpenFor] = useState<string | null>(null);
+  const [stockSearchOpen, setStockSearchOpen] = useState(false);
   const [stockSearchQuery, setStockSearchQuery] = useState('');
+  const [selectedStockEntry, setSelectedStockEntry] = useState<{ item: string; description: string; unit: string; qty: number } | null>(null);
+  const [newItemQty, setNewItemQty] = useState('');
+  const [newItemPreferredBrand, setNewItemPreferredBrand] = useState('');
 
   useEffect(() => {
     const loadStock = async () => {
@@ -360,145 +363,77 @@ export default function NewRequest() {
         </div>
 
         <div className="rounded-xl border border-border bg-card p-4 md:p-6 space-y-4">
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-semibold">Materials</h3>
+              <p className="text-xs text-muted-foreground">Search stock, set quantity, and add items.</p>
+            </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => {
-                if (items.length > 0) {
-                  setStockSearchOpenFor(items[0].id);
-                  setStockSearchQuery('');
-                }
+                setStockSearchOpen(true);
+                setStockSearchQuery('');
+                setSelectedStockEntry(null);
+                setNewItemQty('');
+                setNewItemPreferredBrand('');
               }}
             >
               Search Stock
             </Button>
           </div>
 
-          <div className="space-y-4">
-            {items.map((item, index) => (
-              <div 
-                key={item.id} 
-                className="p-4 rounded-lg bg-muted/40 border border-border space-y-4"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">{index + 1}</span>
-                    <span className="font-medium text-sm text-muted-foreground">Item</span>
-                  </div>
-                  {items.length > 1 && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => removeItem(item.id)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Category *</Label>
-                    <Select 
-                      value={item.category} 
-                      onValueChange={(v) => updateItem(item.id, 'category', v)}
-                      disabled
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map(cat => (
-                          <SelectItem key={cat.slug} value={cat.slug}>
-                            {cat.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Material Name *</Label>
-                    <Input
-                      placeholder="Select from stock"
-                      value={item.name}
-                      readOnly
-                    />
-                    {item.name && item.unit && (
-                      <div className="text-xs text-muted-foreground">
-                        Balance: {getBalance(item.name, item.unit)} {item.unit}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Specification</Label>
-                    <Input
-                      placeholder="Grade, size, standard..."
-                      value={item.specification}
-                      onChange={(e) => updateItem(item.id, 'specification', e.target.value)}
-                      disabled
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Quantity *</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      placeholder="0"
-                      value={item.quantity}
-                      onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Unit *</Label>
-                    <Select 
-                      value={item.unit} 
-                      onValueChange={(v) => updateItem(item.id, 'unit', v)}
-                      disabled
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select unit" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {units.map(unit => (
-                          <SelectItem key={unit.value} value={unit.value}>
-                            {unit.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Preferred Brand</Label>
-                    <Input
-                      placeholder="Optional"
-                      value={item.preferredBrand}
-                      onChange={(e) => updateItem(item.id, 'preferredBrand', e.target.value)}
-                    />
-                  </div>
-                </div>
+          <div className="border rounded-lg overflow-hidden">
+            <div className="grid grid-cols-5 gap-0 bg-muted/60 text-xs font-medium text-muted-foreground">
+              <div className="px-3 py-2">Item</div>
+              <div className="px-3 py-2">Description</div>
+              <div className="px-3 py-2">Qty</div>
+              <div className="px-3 py-2">Unit</div>
+              <div className="px-3 py-2">Preferred Brand</div>
+            </div>
+            {items.length === 0 ? (
+              <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                No items added yet. Use “Search Stock” to add materials.
               </div>
-            ))}
-
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={addItem}
-              className="w-full border-dashed"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Another Item
-            </Button>
+            ) : (
+              <div className="divide-y">
+                {items.map((item) => (
+                  <div key={item.id} className="grid grid-cols-5 gap-0 items-center">
+                    <div className="px-3 py-2 text-sm font-medium">{item.name}</div>
+                    <div className="px-3 py-2 text-sm text-muted-foreground">{item.specification || '-'}</div>
+                    <div className="px-3 py-2">
+                      <Input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
+                      />
+                    </div>
+                    <div className="px-3 py-2 text-sm">{item.unit}</div>
+                    <div className="px-3 py-2">
+                      <Input
+                        value={item.preferredBrand}
+                        onChange={(e) => updateItem(item.id, 'preferredBrand', e.target.value)}
+                        placeholder="Optional"
+                      />
+                    </div>
+                    <div className="px-3 py-2 col-span-5 text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => removeItem(item.id)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-
         <div className="rounded-xl border border-border bg-card p-4 md:p-6 space-y-4">
           <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
             <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
@@ -529,7 +464,7 @@ export default function NewRequest() {
         </div>
       </div>
       {/* Stock Search Dialog */}
-      <Dialog open={!!stockSearchOpenFor} onOpenChange={(open) => !open && setStockSearchOpenFor(null)}>
+      <Dialog open={stockSearchOpen} onOpenChange={setStockSearchOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Select Stock Item</DialogTitle>
@@ -540,7 +475,7 @@ export default function NewRequest() {
 
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label>Select Item</Label>
+              <Label>Search</Label>
               <Select
                 value={stockSearchOpenFor || ''}
                 onValueChange={(value) => setStockSearchOpenFor(value)}
@@ -563,6 +498,52 @@ export default function NewRequest() {
               onChange={(e) => setStockSearchQuery(e.target.value)}
             />
 
+            {selectedStockEntry && (
+              <div className="rounded-lg border border-border p-3 space-y-3">
+                <div className="text-sm font-medium">{selectedStockEntry.item || selectedStockEntry.description}</div>
+                <div className="text-xs text-muted-foreground">{selectedStockEntry.description} • {selectedStockEntry.unit} • Available {selectedStockEntry.qty}</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label>Quantity *</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={newItemQty}
+                      onChange={(e) => setNewItemQty(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Preferred Brand</Label>
+                    <Input
+                      value={newItemPreferredBrand}
+                      onChange={(e) => setNewItemPreferredBrand(e.target.value)}
+                      placeholder="Optional"
+                    />
+                  </div>
+                </div>
+                <Button
+                  variant="accent"
+                  onClick={() => {
+                    if (!selectedStockEntry) return;
+                    if (!newItemQty || Number(newItemQty) <= 0) return;
+                    const id = Date.now().toString();
+                    setItems((prev) => ([...prev, {
+                      id,
+                      category: pickCategory(selectedStockEntry),
+                      name: selectedStockEntry.item || selectedStockEntry.description,
+                      specification: selectedStockEntry.description,
+                      quantity: newItemQty,
+                      unit: selectedStockEntry.unit as any,
+                      preferredBrand: newItemPreferredBrand,
+                    }]));
+                    setStockSearchOpen(false);
+                  }}
+                >
+                  Add Item
+                </Button>
+              </div>
+            )}
+
             <div className="border rounded-lg max-h-64 overflow-y-auto">
               {loadingStock ? (
                 <div className="p-4 text-sm text-muted-foreground">Loading stock...</div>
@@ -576,12 +557,7 @@ export default function NewRequest() {
                       key={`${entry.description}_${entry.unit}`}
                       className="w-full text-left p-3 hover:bg-muted/50"
                       onClick={() => {
-                        if (!stockSearchOpenFor) return;
-                        updateItem(stockSearchOpenFor, 'name', entry.item || entry.description);
-                        updateItem(stockSearchOpenFor, 'specification', entry.description);
-                        updateItem(stockSearchOpenFor, 'unit', entry.unit);
-                        updateItem(stockSearchOpenFor, 'category', pickCategory(entry));
-                        setStockSearchOpenFor(null);
+                        setSelectedStockEntry(entry);
                       }}
                     >
                       <div className="font-medium text-sm">{entry.item || entry.description}</div>
