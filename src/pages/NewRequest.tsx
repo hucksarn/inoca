@@ -367,7 +367,22 @@ export default function NewRequest() {
 
         {/* Section C: Material Details */}
         <div className="form-section animate-slide-up" style={{ animationDelay: '200ms' }}>
-          <h2 className="form-section-title">Section C – Material Details</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="form-section-title">Section C – Material Details</h2>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (items.length > 0) {
+                  setStockSearchOpenFor(items[0].id);
+                  setStockSearchQuery('');
+                }
+              }}
+            >
+              Search Stock
+            </Button>
+          </div>
           
           <div className="space-y-4">
             {items.map((item, index) => (
@@ -413,20 +428,7 @@ export default function NewRequest() {
                   </div>
 
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label>Material Name *</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setStockSearchOpenFor(item.id);
-                          setStockSearchQuery('');
-                        }}
-                      >
-                        Search Stock
-                      </Button>
-                    </div>
+                    <Label>Material Name *</Label>
                     <Input
                       placeholder="Select from stock"
                       value={item.name}
@@ -550,6 +552,24 @@ export default function NewRequest() {
           </DialogHeader>
 
           <div className="space-y-3">
+            <div className="space-y-2">
+              <Label>Select Item</Label>
+              <Select
+                value={stockSearchOpenFor || ''}
+                onValueChange={(value) => setStockSearchOpenFor(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select item number" />
+                </SelectTrigger>
+                <SelectContent>
+                  {items.map((item, index) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      Item {index + 1}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Input
               placeholder="Search stock by description or unit..."
               value={stockSearchQuery}
