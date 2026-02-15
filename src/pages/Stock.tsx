@@ -319,7 +319,17 @@ export default function Stock() {
                   <Upload className="h-4 w-4" />
                   Upload
                 </Button>
+                <a
+                  href="/stock_sample.csv"
+                  className="text-xs text-primary underline underline-offset-4"
+                  download
+                >
+                  Download sample CSV
+                </a>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Required columns: <span className="font-medium">Description, Qty, Unit</span>
+              </p>
 
               {uploadRows.length > 0 ? (
                 <div className="border rounded-lg p-3">
