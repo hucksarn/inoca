@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Plus, Upload, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useMaterialCategories } from '@/hooks/useDatabase';
 import * as XLSX from 'xlsx';
 
 type StockItem = {
@@ -50,6 +51,7 @@ export default function Stock() {
     { id: `manual_${Date.now()}`, item: '', description: '', qty: 0, unit: '' },
   ]);
   const [activeTab, setActiveTab] = useState<'manual' | 'excel'>('manual');
+  const { data: categories = [] } = useMaterialCategories();
 
   const loadStock = async () => {
     try {
@@ -180,6 +182,17 @@ export default function Stock() {
 
   const hasManualRows = manualRows.some((row) => row.description.trim().length > 0);
 
+  const pickCategory = (item: StockItem) => {
+    if (categories.length === 0) return 'Uncategorized';
+    const seed = `${item.item ?? ''} ${item.description ?? ''}`.trim();
+    let hash = 0;
+    for (let i = 0; i < seed.length; i += 1) {
+      hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+    }
+    const index = hash % categories.length;
+    return categories[index]?.name || 'Uncategorized';
+  };
+
   return (
     <MainLayout title="Stock" subtitle="Store items inventory">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -204,16 +217,16 @@ export default function Stock() {
               <TableRow>
                 <TableHead className="w-12">#</TableHead>
                 <TableHead>Item</TableHead>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead>Unit</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Qty</TableHead>
+                <TableHead>Unit</TableHead>
+                <TableHead>Category</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {stockItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     No stock items yet.
                   </TableCell>
                 </TableRow>
@@ -225,6 +238,7 @@ export default function Stock() {
                   <TableCell className="font-medium">{item.description}</TableCell>
                     <TableCell>{item.qty}</TableCell>
                     <TableCell>{item.unit}</TableCell>
+                    <TableCell>{pickCategory(item)}</TableCell>
                   </TableRow>
                 ))
               )}
