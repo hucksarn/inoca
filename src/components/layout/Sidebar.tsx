@@ -10,7 +10,8 @@ import {
   ChevronRight,
   HardHat,
   LogOut,
-  Building2
+  Building2,
+  Package
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -31,6 +32,7 @@ export function Sidebar() {
     { name: isAdmin ? 'All Requests' : 'My Requests', href: '/requests', icon: FileText },
     { name: 'Approvals', href: '/approvals', icon: CheckSquare, adminOnly: true, badge: pendingCount },
     { name: 'Projects', href: '/projects', icon: Building2, adminOnly: true },
+    { name: 'Stock', href: '/stock', icon: Package, adminOnly: true },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
